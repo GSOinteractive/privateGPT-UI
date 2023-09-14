@@ -209,8 +209,10 @@ def load_model():
 
     match model_type:
         case "LlamaCpp":
+            print("load LLM model from path " + model_path)
             llm = LlamaCpp(model_path=model_path, max_tokens=model_n_ctx, n_batch=model_n_batch, callbacks=callbacks, verbose=False)
         case "GPT4All":
+            print("load GPT4All model from path " + model_path)
             llm = GPT4All(model=model_path, max_tokens=model_n_ctx, backend='gptj', n_batch=model_n_batch, callbacks=callbacks, verbose=False)
         case _default:
             # raise exception if model_type is not supported
