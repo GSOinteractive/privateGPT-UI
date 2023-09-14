@@ -1,2 +1,6 @@
 .vs
 .vscode
+server/db
+server/models
+server/.env
+client/package-lock.json
