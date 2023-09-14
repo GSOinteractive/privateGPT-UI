@@ -180,6 +180,7 @@ LOADER_MAPPING = {
     
 @app.route('/get_answer', methods=['POST'])
 def get_answer():
+    global llm
     query = request.json
     embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
     db = Chroma(persist_directory=persist_directory, embedding_function=embeddings, client_settings=CHROMA_SETTINGS)
