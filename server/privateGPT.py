@@ -88,6 +88,58 @@ LOADER_MAPPING = {
     ".txt": (TextLoader, {"encoding": "utf8"}),
     # Add more mappings for other file extensions and loaders as needed
 }
+    
+@app.route('/get_answer', methods=['POST'])
+def get_answer():
+    global llm
+    query = request.json
+    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
+    db = Chroma(persist_directory=persist_directory, embedding_function=embeddings, client_settings=CHROMA_SETTINGS)
+    retriever = db.as_retriever()
+    if llm==None:
+        return "Model not downloaded", 400    
+    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True)
+    if query!=None and query!="":
+        res = qa(query)
+        answer, docs = res['result'], res['source_documents']
+        
+        source_data =[]
+        for document in docs:
+             source_data.append({"name":document.metadata["source"]})
+
+        return jsonify(query=query,answer=answer,source=source_data)
+
+    return "Empty Query",400
+
+def load_model():
+    global model_type
+    global model_path
+    global model_n_ctx
+    global model_n_batch
+    global llm
+
+    callbacks = [StreamingStdOutCallbackHandler()]
+
+    match model_type:
+        case "LlamaCpp":
+            print("load LLM model from path " + model_path)
+            llm = LlamaCpp(model_path=model_path, max_tokens=model_n_ctx, n_batch=model_n_batch, callbacks=callbacks, verbose=False)
+        case "GPT4All":
+            print("load GPT4All model from path " + model_path)
+            llm = GPT4All(model=model_path, max_tokens=model_n_ctx, backend='gptj', n_batch=model_n_batch, callbacks=callbacks, verbose=False)
+        case _default:
+            # raise exception if model_type is not supported
+            raise Exception(f"Model type {model_type} is not supported. Please choose one of the following: LlamaCpp, GPT4All")
+
+    
+if __name__ == "__main__":
+  load_model()
+  print("LLM0", llm)
+  app.run(host="0.0.0.0", debug = False)
+
+
+
+
 
 
 # def load_single_document(file_path: str) -> Document:
@@ -176,51 +228,3 @@ LOADER_MAPPING = {
 #     callbacks = [StreamingStdOutCallbackHandler()]
 #     llm = GPT4All(model=model_path, n_ctx=model_n_ctx, backend='gptj', callbacks=callbacks, verbose=False)
 #     return jsonify(response="Download completed")
-
-    
-@app.route('/get_answer', methods=['POST'])
-def get_answer():
-    global llm
-    query = request.json
-    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
-    db = Chroma(persist_directory=persist_directory, embedding_function=embeddings, client_settings=CHROMA_SETTINGS)
-    retriever = db.as_retriever()
-    if llm==None:
-        return "Model not downloaded", 400    
-    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True)
-    if query!=None and query!="":
-        res = qa(query)
-        answer, docs = res['result'], res['source_documents']
-        
-        source_data =[]
-        for document in docs:
-             source_data.append({"name":document.metadata["source"]})
-
-        return jsonify(query=query,answer=answer,source=source_data)
-
-    return "Empty Query",400
-
-def load_model():
-    global model_type
-    global model_path
-    global model_n_ctx
-    global model_n_batch
-
-    callbacks = [StreamingStdOutCallbackHandler()]
-
-    match model_type:
-        case "LlamaCpp":
-            print("load LLM model from path " + model_path)
-            llm = LlamaCpp(model_path=model_path, max_tokens=model_n_ctx, n_batch=model_n_batch, callbacks=callbacks, verbose=False)
-        case "GPT4All":
-            print("load GPT4All model from path " + model_path)
-            llm = GPT4All(model=model_path, max_tokens=model_n_ctx, backend='gptj', n_batch=model_n_batch, callbacks=callbacks, verbose=False)
-        case _default:
-            # raise exception if model_type is not supported
-            raise Exception(f"Model type {model_type} is not supported. Please choose one of the following: LlamaCpp, GPT4All")
-
-    
-if __name__ == "__main__":
-  load_model()
-  print("LLM0", llm)
-  app.run(host="0.0.0.0", debug = False)
